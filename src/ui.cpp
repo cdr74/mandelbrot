@@ -60,6 +60,11 @@ void UI::render(MandelbrotState& state, UIState& uiState) {
     ImGui::SetNextWindowSize(ImVec2(310, 0), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("Mandelbrot Explorer", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize);
+    {
+        ImVec2 p = ImGui::GetWindowPos(), s = ImGui::GetWindowSize();
+        uiState.overlayX = p.x; uiState.overlayY = p.y;
+        uiState.overlayW = s.x; uiState.overlayH = s.y;
+    }
 
     // Max iterations slider
     ImGui::Text("Max Iterations");

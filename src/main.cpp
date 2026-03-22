@@ -18,6 +18,7 @@ MandelbrotState mandelbrot;
 UIState uiState;
 Renderer renderer;
 UI ui;
+bool needsRedraw = true;
 
 void errorCallback(int error, const char* description) {
     std::cerr << "GLFW Error " << error << ": " << description << std::endl;
@@ -27,6 +28,7 @@ void framebufferSizeCallback(GLFWwindow*, int width, int height) {
     glViewport(0, 0, width, height);
     mandelbrot.windowWidth  = width;
     mandelbrot.windowHeight = height;
+    needsRedraw = true;
 }
 
 void keyCallback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/) {
@@ -36,35 +38,42 @@ void keyCallback(GLFWwindow* window, int key, int /*scancode*/, int action, int 
     } else if (key == GLFW_KEY_H) {
         uiState.showOverlay ^= true;
     }
+    needsRedraw = true;
 }
 
 void scrollCallback(GLFWwindow* window, double /*xoff*/, double yoff) {
-    // Skip if ImGui wants the mouse
     if (ImGui::GetIO().WantCaptureMouse) return;
-
     double mx, my;
     glfwGetCursorPos(window, &mx, &my);
-
     float factor = (yoff > 0) ? 0.8f : 1.25f;
     mandelbrot.zoomAtPixel(mx, my, factor);
+    needsRedraw = true;
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int /*mods*/) {
     if (ImGui::GetIO().WantCaptureMouse) return;
-
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         if (action == GLFW_PRESS) {
             double mx, my;
             glfwGetCursorPos(window, &mx, &my);
-            mandelbrot.dragging      = true;
-            mandelbrot.dragStartPx   = mx;
-            mandelbrot.dragStartPy   = my;
+            mandelbrot.dragging         = true;
+            mandelbrot.dragStartPx      = mx;
+            mandelbrot.dragStartPy      = my;
             mandelbrot.dragStartCenterX = mandelbrot.centerX;
             mandelbrot.dragStartCenterY = mandelbrot.centerY;
         } else if (action == GLFW_RELEASE) {
             mandelbrot.dragging = false;
         }
     }
+    needsRedraw = true;
+}
+
+void cursorPosCallback(GLFWwindow*, double xpos, double ypos) {
+    // Only redraw for cursor movement when the cursor is over the overlay
+    // (needed for hover highlights). Movement over the fractal is ignored.
+    if (xpos >= uiState.overlayX && xpos <= uiState.overlayX + uiState.overlayW &&
+        ypos >= uiState.overlayY && ypos <= uiState.overlayY + uiState.overlayH)
+        needsRedraw = true;
 }
 
 int main() {
@@ -97,6 +106,7 @@ int main() {
     glfwSetKeyCallback(window, keyCallback);
     glfwSetScrollCallback(window, scrollCallback);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
+    glfwSetCursorPosCallback(window, cursorPosCallback);
 
     if (!gladLoadGL()) {
         std::cerr << "Failed to initialize GLAD" << std::endl;
@@ -129,9 +139,20 @@ int main() {
     std::cout << "Entering main loop..." << std::endl;
 
     double lastTime = glfwGetTime();
+    bool imguiWantsMouse = false; // updated each frame after render
 
     while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
+        // Block until an event arrives when nothing needs continuous redraws.
+        // ImGui needs redraws while the cursor is over its window (hover highlights).
+        if (mandelbrot.cyclingColors || mandelbrot.dragging || imguiWantsMouse)
+            glfwPollEvents();
+        else
+            glfwWaitEvents();
+
+        // Skip render entirely if nothing changed
+        if (!needsRedraw && !mandelbrot.cyclingColors && !mandelbrot.dragging && !imguiWantsMouse)
+            continue;
+        needsRedraw = false;
 
         double now = glfwGetTime();
         float  dt  = (float)(now - lastTime);
@@ -169,6 +190,8 @@ int main() {
             uiState.saveStatus = "Saved: " + name;
             uiState.saveStatusTimer = 3.0f;
         }
+
+        imguiWantsMouse = ImGui::GetIO().WantCaptureMouse;
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

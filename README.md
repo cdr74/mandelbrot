@@ -20,6 +20,7 @@ This is a modern revisitation of a high-performance x86 assembly Mandelbrot rend
 - **Save to JPEG** — captures the current view (without UI overlay) as a timestamped `.jpg`
 - **Live frame time** — millisecond render cost shown in the overlay
 - **Float precision warning** — the UI alerts you when zoom depth exceeds float accuracy (~1e6×)
+- **Demand-driven rendering** — redraws only on actual input; idles at zero GPU load when nothing is happening
 - **Static binary** — ships as a single `.exe` with no external DLL dependencies
 
 ---
