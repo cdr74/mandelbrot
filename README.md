@@ -12,11 +12,13 @@ This is a modern revisitation of a high-performance x86 assembly Mandelbrot rend
 
 - **GPU-accelerated rendering** — escape-time computation runs entirely in GLSL on the fragment shader; no CPU iteration loops
 - **Smooth coloring** — Inigo Quilez's smooth iteration count formula eliminates harsh banding
-- **6 color schemes** — Classic, Fire, Ocean, Grayscale, Psychedelic, Ultra
+- **6 color schemes** — Classic, Fire, Ocean, Grayscale, Psychedelic, Ultra, selectable via dropdown
+- **Palette cycling** — animates the color offset within the current scheme; click once to start, again to stop
 - **Cursor-invariant zoom** — the point under the cursor stays fixed as you zoom in and out
 - **Drag to pan** — click and drag to move around the complex plane
 - **Adjustable iteration depth** — 50 to 2000 iterations via slider
-- **Live stats overlay** — center coordinates, zoom level, and frame time (ms)
+- **Save to JPEG** — captures the current view (without UI overlay) as a timestamped `.jpg`
+- **Live frame time** — millisecond render cost shown in the overlay
 - **Float precision warning** — the UI alerts you when zoom depth exceeds float accuracy (~1e6×)
 - **Static binary** — ships as a single `.exe` with no external DLL dependencies
 
@@ -32,7 +34,10 @@ This is a modern revisitation of a high-performance x86 assembly Mandelbrot rend
 | `H` | Toggle overlay |
 | `ESC` | Quit |
 
-The overlay also has **Zoom In**, **Zoom Out**, and **Reset View** buttons.
+The overlay also provides:
+- **Zoom In / Zoom Out / Reset** buttons
+- **Cycle Colors** — toggles animated palette cycling within the current scheme (green when active)
+- **Save JPG** — writes `mandelbrot_YYYYMMDD_HHMMSS.jpg` to the working directory; a confirmation message appears for 3 seconds
 
 ---
 
@@ -65,6 +70,7 @@ The following libraries are fetched automatically by CMake at configure time (no
 | [Dear ImGui](https://github.com/ocornut/imgui) | 1.90.1 | Immediate-mode UI overlay |
 | [GLM](https://github.com/g-truc/glm) | 0.9.9.8 | Math types (header-only) |
 | [GLAD](https://glad.dav1d.de/) | bundled in `external/` | OpenGL function loader |
+| [stb_image_write](https://github.com/nothings/stb) | bundled in `external/` | JPEG export |
 
 ### Build
 
@@ -104,7 +110,8 @@ mandelbrot/
 ├── toolchain-mingw.cmake       CMake cross-compilation toolchain for MinGW
 ├── build-windows.sh            One-shot build script
 ├── external/
-│   └── glad/                   OpenGL loader (bundled)
+│   ├── glad/                   OpenGL loader (bundled)
+│   └── stb_image_write.h       JPEG writer (bundled, single-header)
 ├── shaders/
 │   ├── mandelbrot.vert         Passthrough vertex shader (fullscreen quad)
 │   └── mandelbrot.frag         Mandelbrot iteration + smooth coloring (all 6 schemes)

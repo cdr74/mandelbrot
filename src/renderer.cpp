@@ -57,6 +57,7 @@ void Renderer::render(const MandelbrotState& state) {
     glUniform1f(glGetUniformLocation(shaderProgram, "u_zoom"), state.zoom);
     glUniform1i(glGetUniformLocation(shaderProgram, "u_maxIter"), state.maxIter);
     glUniform1i(glGetUniformLocation(shaderProgram, "u_colorScheme"), (int)state.colorScheme);
+    glUniform1f(glGetUniformLocation(shaderProgram, "u_colorOffset"), state.colorOffset);
     glUniform2f(glGetUniformLocation(shaderProgram, "u_resolution"),
                 (float)state.windowWidth, (float)state.windowHeight);
 

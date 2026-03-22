@@ -4,6 +4,7 @@ uniform vec2  u_center;
 uniform float u_zoom;
 uniform int   u_maxIter;
 uniform int   u_colorScheme;
+uniform float u_colorOffset;
 uniform vec2  u_resolution;
 
 out vec4 FragColor;
@@ -114,5 +115,5 @@ void main() {
     // Smooth iteration count (Inigo Quilez formulation)
     float smooth_i = float(i) - log2(log2(dot(z, z))) + 1.0;
 
-    FragColor = vec4(applyColorScheme(smooth_i), 1.0);
+    FragColor = vec4(applyColorScheme(smooth_i + u_colorOffset), 1.0);
 }

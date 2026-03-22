@@ -128,8 +128,14 @@ int main() {
 
     std::cout << "Entering main loop..." << std::endl;
 
+    double lastTime = glfwGetTime();
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+
+        double now = glfwGetTime();
+        float  dt  = (float)(now - lastTime);
+        lastTime   = now;
 
         // Process drag pan
         if (mandelbrot.dragging) {
@@ -146,6 +152,9 @@ int main() {
             mandelbrot.centerY = mandelbrot.dragStartCenterY - dy * unitsY;
         }
 
+        if (mandelbrot.cyclingColors)
+            mandelbrot.colorOffset += dt * 15.0f;
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -153,6 +162,13 @@ int main() {
         ui.render(mandelbrot, uiState);
 
         renderer.render(mandelbrot);
+
+        if (uiState.pendingSave) {
+            uiState.pendingSave = false;
+            std::string name = saveFramebuffer(mandelbrot.windowWidth, mandelbrot.windowHeight);
+            uiState.saveStatus = "Saved: " + name;
+            uiState.saveStatusTimer = 3.0f;
+        }
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

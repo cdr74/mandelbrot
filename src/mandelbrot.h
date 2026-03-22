@@ -16,6 +16,8 @@ struct MandelbrotState {
     float zoom = 1.5f;       // fractal units per half-height
     int maxIter = 256;
     ColorScheme colorScheme = ColorScheme::Classic;
+    float colorOffset = 0.0f;
+    bool cyclingColors = false;
     int windowWidth = 1024;
     int windowHeight = 768;
 

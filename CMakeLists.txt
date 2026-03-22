@@ -83,6 +83,7 @@ add_executable(MandelbrotExplorer
 target_include_directories(MandelbrotExplorer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external
 )
 
 target_link_libraries(MandelbrotExplorer PRIVATE

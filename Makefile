@@ -13,6 +13,7 @@ INCLUDES = \
   -I$(DEPS)/_deps/imgui-src/backends \
   -I$(DEPS)/_deps/glm-src \
   -Iexternal/glad/include \
+  -Iexternal \
   -Isrc
 
 LIBS = \

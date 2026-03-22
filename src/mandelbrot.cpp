@@ -12,7 +12,7 @@ void MandelbrotState::reset() {
 void MandelbrotState::pixelToComplex(double px, double py, double& cx, double& cy) const {
     double aspect = static_cast<double>(windowWidth) / static_cast<double>(windowHeight);
     cx = centerX + (px / windowWidth - 0.5) * 2.0 * zoom * aspect;
-    cy = centerY - (py / windowHeight - 0.5) * 2.0 * zoom;
+    cy = centerY + (py / windowHeight - 0.5) * 2.0 * zoom;
 }
 
 void MandelbrotState::zoomAtPixel(double px, double py, float factor) {
@@ -23,5 +23,5 @@ void MandelbrotState::zoomAtPixel(double px, double py, float factor) {
 
     double aspect = static_cast<double>(windowWidth) / static_cast<double>(windowHeight);
     centerX = cx - (px / windowWidth - 0.5) * 2.0 * zoom * aspect;
-    centerY = cy + (py / windowHeight - 0.5) * 2.0 * zoom;
+    centerY = cy - (py / windowHeight - 0.5) * 2.0 * zoom;
 }
