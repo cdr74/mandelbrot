@@ -20,6 +20,7 @@ This is a modern revisitation of a high-performance x86 assembly Mandelbrot rend
 - **Save to JPEG** — captures the current view (without UI overlay) as a timestamped `.jpg`
 - **Live frame time** — millisecond render cost shown in the overlay
 - **Float precision warning** — the UI alerts you when zoom depth exceeds float accuracy (~1e6×)
+- **Orbit visualization** — right-click any point to watch its Mandelbrot iteration animate step by step inside a circular portal overlay (see below)
 - **Demand-driven rendering** — redraws only on actual input; idles at zero GPU load when nothing is happening
 - **Static binary** — ships as a single `.exe` with no external DLL dependencies
 
@@ -32,6 +33,7 @@ This is a modern revisitation of a high-performance x86 assembly Mandelbrot rend
 | Scroll wheel up | Zoom in (centered on cursor) |
 | Scroll wheel down | Zoom out (centered on cursor) |
 | Left click + drag | Pan |
+| Right click | Pick a point and start orbit visualization |
 | `H` | Toggle overlay |
 | `ESC` | Quit |
 
@@ -39,6 +41,7 @@ The overlay also provides:
 - **Zoom In / Zoom Out / Reset** buttons
 - **Cycle Colors** — toggles animated palette cycling within the current scheme (green when active)
 - **Save JPG** — writes `mandelbrot_YYYYMMDD_HHMMSS.jpg` to the working directory; a confirmation message appears for 3 seconds
+- **Orbit Visualization** controls — Play/Pause, Restart, speed slider (0.5–30 iter/s), Loop toggle, and Clear
 
 ---
 
@@ -118,9 +121,9 @@ mandelbrot/
 │   └── mandelbrot.frag         Mandelbrot iteration + smooth coloring (all 6 schemes)
 └── src/
     ├── main.cpp                GLFW init, callbacks, main loop
-    ├── mandelbrot.h/cpp        Explorer state and coordinate math
+    ├── mandelbrot.h/cpp        Explorer state, coordinate math, and orbit computation
     ├── renderer.h/cpp          OpenGL setup, uniform upload, draw call
-    └── ui.h/ui.cpp             ImGui overlay
+    └── ui.h/ui.cpp             ImGui overlay and orbit portal rendering
 ```
 
 ---
@@ -187,9 +190,36 @@ VSync is enabled by default to prevent the GPU from running at 100% when idle. T
 
 ---
 
+## Orbit Visualization
+
+Right-click anywhere on the fractal to pick a complex number `c` and watch its orbit — the sequence z₀=0, z₁=z₀²+c, z₂=z₁²+c, … — animate one step at a time.
+
+The visualization appears as a circular portal in the bottom-right corner of the window:
+
+- **Dark background** with subtle Re/Im axes and the escape circle |z|=2 always visible as a reference, independent of the fractal's current zoom level
+- **Amber trail** connecting each z_n, fading from dim (older) to bright (recent)
+- **White dot** at z₀=0 (the fixed starting point), **cyan dot** for the current step, **red dot** when a point escapes
+- **Amber crosshair** marks the picked point `c` both in the portal and on the fractal itself
+- Points with |z|>2.35 are clamped to the portal edge so escaped orbits never overflow the circle
+
+The **Orbit Visualization** section in the overlay panel provides:
+
+| Control | Description |
+|---------|-------------|
+| Play / Pause | Start or freeze the animation |
+| Restart | Reset to z₀ and replay |
+| Clear | Dismiss the portal |
+| Speed slider | 0.5 – 30 iterations per second |
+| Loop checkbox | Automatically restart after reaching the final step |
+
+The step counter at the bottom of the portal shows the current iteration and, for escaping points, which step first crossed the boundary.
+
+---
+
 ## Possible Future Extensions
 
 - **Double precision** — GLSL `double` (OpenGL 4.0) or DS (double-single) split-float arithmetic for OpenGL 3.3 compatibility, enabling zoom beyond 1e15
 - **Keyframe animation** — record (center, zoom) sequences and render offline at high iteration counts
-- **Julia set mode** — fix `c` as a parameter and iterate from each pixel position as the starting `z`
+- **Julia set mode** — fix `c` as a parameter and iterate from each pixel position as the starting `z`; the orbit visualization already computes the same iteration so the two features share math
+
 - **Height map / 3D view** — use the smooth iteration value as elevation for a second rendering pass
