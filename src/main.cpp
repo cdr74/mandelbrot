@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <algorithm>
 #include <iostream>
 #include "mandelbrot.h"
 #include "renderer.h"
@@ -16,6 +17,7 @@ const char* WINDOW_TITLE = "Mandelbrot Explorer";
 // Global state (needed by GLFW callbacks)
 MandelbrotState mandelbrot;
 UIState uiState;
+OrbitState orbitState;
 Renderer renderer;
 UI ui;
 bool needsRedraw = true;
@@ -64,6 +66,13 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int /*mods*
         } else if (action == GLFW_RELEASE) {
             mandelbrot.dragging = false;
         }
+    }
+    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+        double mx, my;
+        glfwGetCursorPos(window, &mx, &my);
+        double cx, cy;
+        mandelbrot.pixelToComplex(mx, my, cx, cy);
+        orbitState.compute(cx, cy, mandelbrot.maxIter);
     }
     needsRedraw = true;
 }
@@ -144,13 +153,15 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         // Block until an event arrives when nothing needs continuous redraws.
         // ImGui needs redraws while the cursor is over its window (hover highlights).
-        if (mandelbrot.cyclingColors || mandelbrot.dragging || imguiWantsMouse)
+        bool animating = mandelbrot.cyclingColors || mandelbrot.dragging
+                      || imguiWantsMouse || orbitState.needsAnimation();
+        if (animating)
             glfwPollEvents();
         else
             glfwWaitEvents();
 
         // Skip render entirely if nothing changed
-        if (!needsRedraw && !mandelbrot.cyclingColors && !mandelbrot.dragging && !imguiWantsMouse)
+        if (!needsRedraw && !animating)
             continue;
         needsRedraw = false;
 
@@ -176,11 +187,35 @@ int main() {
         if (mandelbrot.cyclingColors)
             mandelbrot.colorOffset += dt * 15.0f;
 
+        // Advance orbit animation
+        if (orbitState.active && orbitState.playing) {
+            if (orbitState.pauseTimer > 0.0f) {
+                orbitState.pauseTimer = std::max(0.0f, orbitState.pauseTimer - dt);
+            } else {
+                orbitState.timer += dt;
+                float step = 1.0f / orbitState.speed;
+                while (orbitState.timer >= step) {
+                    orbitState.timer -= step;
+                    int last = (int)orbitState.orbit.size() - 1;
+                    if (orbitState.displayIter < last) {
+                        orbitState.displayIter++;
+                    } else if (orbitState.looping) {
+                        orbitState.displayIter = 0;
+                        orbitState.pauseTimer  = 0.8f;
+                        break;
+                    } else {
+                        orbitState.playing = false;
+                        break;
+                    }
+                }
+            }
+        }
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ui.render(mandelbrot, uiState);
+        ui.render(mandelbrot, uiState, orbitState);
 
         renderer.render(mandelbrot);
 

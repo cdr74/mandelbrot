@@ -1,4 +1,6 @@
 #pragma once
+#include <vector>
+#include <utility>
 
 enum class ColorScheme {
     Classic = 0,
@@ -29,4 +31,23 @@ struct MandelbrotState {
     void reset();
     void pixelToComplex(double px, double py, double& cx, double& cy) const;
     void zoomAtPixel(double px, double py, float factor);
+};
+
+struct OrbitState {
+    bool   active           = false;
+    double cx               = 0.0;
+    double cy               = 0.0;
+    int    displayIter      = 0;
+    float  timer            = 0.0f;
+    float  pauseTimer       = 0.0f;
+    float  speed            = 5.0f;
+    bool   playing          = true;
+    bool   looping          = true;
+    int    escapeAt         = -1;
+    int    computedMaxIter  = 0;
+    std::vector<std::pair<double,double>> orbit;
+
+    void compute(double c_re, double c_im, int maxIter);
+    void clear();
+    bool needsAnimation() const;
 };

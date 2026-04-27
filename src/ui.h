@@ -15,7 +15,7 @@ class UI {
 public:
     void applyTheme();
     void initialize();
-    void render(MandelbrotState& state, UIState& uiState);
+    void render(MandelbrotState& state, UIState& uiState, OrbitState& orbitState);
 };
 
 std::string saveFramebuffer(int width, int height);

@@ -3,6 +3,8 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <glad/glad.h>
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <vector>
@@ -52,7 +54,110 @@ void UI::initialize() {
     io.FontGlobalScale = 1.5f;
 }
 
-void UI::render(MandelbrotState& state, UIState& uiState) {
+static void drawOrbitPortal(const MandelbrotState& ms, const OrbitState& orbit) {
+    if (!orbit.active || orbit.orbit.empty()) return;
+
+    ImDrawList* dl = ImGui::GetForegroundDrawList();
+
+    // Small crosshair on the fractal at the picked point c
+    {
+        double aspect = (double)ms.windowWidth / ms.windowHeight;
+        float fx = (float)(((orbit.cx - ms.centerX) / (2.0 * ms.zoom * aspect) + 0.5) * ms.windowWidth);
+        float fy = (float)(((orbit.cy - ms.centerY) / (2.0 * ms.zoom) + 0.5) * ms.windowHeight);
+        const float cs = 7.0f;
+        dl->AddLine(ImVec2(fx - cs, fy), ImVec2(fx + cs, fy), IM_COL32(255, 200, 50, 220), 1.5f);
+        dl->AddLine(ImVec2(fx, fy - cs), ImVec2(fx, fy + cs), IM_COL32(255, 200, 50, 220), 1.5f);
+        dl->AddCircle(ImVec2(fx, fy), 5.0f, IM_COL32(255, 200, 50, 170), 8, 1.5f);
+    }
+
+    // Portal geometry — bottom-right corner
+    const float portalR    = 140.0f;
+    const float pad        = 20.0f;
+    const ImVec2 C((float)ms.windowWidth  - portalR - pad,
+                   (float)ms.windowHeight - portalR - pad);
+
+    // Independent coordinate system: always shows [-2.5, 2.5] x [-2.5, 2.5]
+    // +Im is DOWN to match the fractal display convention
+    const float viewExtent = 2.5f;
+    const float scale      = portalR * 0.88f / viewExtent;
+
+    // Convert complex coord -> portal pixel, clamped to keep everything inside the circle
+    auto c2p = [&](double re, double im) -> ImVec2 {
+        double lenSq = re * re + im * im;
+        double cap   = viewExtent * 0.94;
+        if (lenSq > cap * cap) {
+            double len = std::sqrt(lenSq);
+            re = re / len * cap;
+            im = im / len * cap;
+        }
+        return ImVec2(C.x + (float)re * scale, C.y + (float)im * scale);
+    };
+
+    // Dark background
+    dl->AddCircleFilled(C, portalR, IM_COL32(8, 10, 22, 248));
+
+    // Subtle axes
+    float ax = portalR * 0.92f;
+    dl->AddLine(ImVec2(C.x - ax, C.y), ImVec2(C.x + ax, C.y), IM_COL32(65, 65, 75, 160), 1.0f);
+    dl->AddLine(ImVec2(C.x, C.y - ax), ImVec2(C.x, C.y + ax), IM_COL32(65, 65, 75, 160), 1.0f);
+
+    // Escape circle |z| = 2
+    dl->AddCircle(C, 2.0f * scale, IM_COL32(130, 130, 160, 160), 64, 1.5f);
+
+    // Orbit trail — fade older segments
+    int n = std::min(orbit.displayIter + 1, (int)orbit.orbit.size());
+    for (int i = 0; i + 1 < n; i++) {
+        float frac    = n > 1 ? (float)i / (float)(n - 1) : 1.0f;
+        uint8_t alpha = (uint8_t)(60 + frac * 170);
+        dl->AddLine(c2p(orbit.orbit[i].first,     orbit.orbit[i].second),
+                    c2p(orbit.orbit[i + 1].first, orbit.orbit[i + 1].second),
+                    IM_COL32(220, 190, 55, alpha), 1.5f);
+    }
+
+    // Orbit dots
+    for (int i = 0; i < n; i++) {
+        ImVec2 p = c2p(orbit.orbit[i].first, orbit.orbit[i].second);
+        bool isStart   = (i == 0);
+        bool isEscaped = (orbit.escapeAt >= 0 && i == orbit.escapeAt);
+        bool isLast    = (i == n - 1);
+        ImU32 col; float r;
+        if (isStart)        { col = IM_COL32(255, 255, 255, 245); r = 5.0f; }
+        else if (isEscaped) { col = IM_COL32(255,  65,  65, 255); r = 6.0f; }
+        else if (isLast)    { col = IM_COL32( 75, 220, 255, 255); r = 5.0f; }
+        else                { col = IM_COL32( 65, 165, 210, 145); r = 3.0f; }
+        dl->AddCircleFilled(p, r, col);
+    }
+
+    // c marker (the picked complex number)
+    ImVec2 cp = c2p(orbit.cx, orbit.cy);
+    const float cs = 5.5f;
+    dl->AddCircle(cp, 4.5f, IM_COL32(255, 200, 50, 210), 8, 1.5f);
+    dl->AddLine(ImVec2(cp.x - cs, cp.y), ImVec2(cp.x + cs, cp.y), IM_COL32(255, 200, 50, 190), 1.5f);
+    dl->AddLine(ImVec2(cp.x, cp.y - cs), ImVec2(cp.x, cp.y + cs), IM_COL32(255, 200, 50, 190), 1.5f);
+
+    // Portal border ring
+    dl->AddCircle(C, portalR, IM_COL32(90, 115, 185, 230), 96, 2.0f);
+
+    // Iteration label (small text at bottom of portal)
+    char label[64];
+    int  total = (int)orbit.orbit.size() - 1;
+    if (orbit.escapeAt >= 0 && orbit.displayIter >= orbit.escapeAt)
+        snprintf(label, sizeof(label), "z%d — escaped!", orbit.displayIter);
+    else if (orbit.escapeAt >= 0)
+        snprintf(label, sizeof(label), "z%d / %d  (escapes at z%d)", orbit.displayIter, total, orbit.escapeAt);
+    else
+        snprintf(label, sizeof(label), "z%d / %d", orbit.displayIter, total);
+    float  fsz  = ImGui::GetFontSize() * 0.62f;
+    ImVec2 tpos(C.x - portalR + 8.0f, C.y + portalR - fsz - 9.0f);
+    ImU32  tcol = (orbit.escapeAt >= 0 && orbit.displayIter >= orbit.escapeAt)
+                ? IM_COL32(255, 100, 100, 220)
+                : IM_COL32(160, 160, 185, 210);
+    dl->AddText(ImGui::GetFont(), fsz, tpos, tcol, label);
+}
+
+void UI::render(MandelbrotState& state, UIState& uiState, OrbitState& orbitState) {
+    drawOrbitPortal(state, orbitState);
+
     if (!uiState.showOverlay) return;
 
     ImGuiIO& io = ImGui::GetIO();
@@ -132,6 +237,43 @@ void UI::render(MandelbrotState& state, UIState& uiState) {
         ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.5f, 1.0f), "%s", uiState.saveStatus.c_str());
     }
 
+    ImGui::Separator();
+    ImGui::Text("Orbit Visualization");
+
+    if (!orbitState.active) {
+        ImGui::TextDisabled("Right-click fractal to pick a point");
+    } else {
+        ImGui::Text("c = (%.5f, %.5fi)", orbitState.cx, orbitState.cy);
+
+        int total = (int)orbitState.orbit.size() - 1;
+        if (orbitState.escapeAt >= 0)
+            ImGui::Text("Step %d / %d  (escapes at %d)", orbitState.displayIter, total, orbitState.escapeAt);
+        else
+            ImGui::Text("Step %d / %d  (bounded)", orbitState.displayIter, total);
+
+        if (orbitState.computedMaxIter != state.maxIter)
+            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Max iter changed — re-pick to refresh");
+
+        float bw3 = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x * 2) / 3.0f;
+        if (ImGui::Button(orbitState.playing ? "Pause" : "Play", ImVec2(bw3, 0)))
+            orbitState.playing = !orbitState.playing;
+        ImGui::SameLine();
+        if (ImGui::Button("Restart", ImVec2(bw3, 0))) {
+            orbitState.displayIter = 0;
+            orbitState.timer       = 0.0f;
+            orbitState.pauseTimer  = 0.0f;
+            orbitState.playing     = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Clear", ImVec2(bw3, 0)))
+            orbitState.clear();
+
+        ImGui::Text("Speed");
+        ImGui::SliderFloat("##orbitspeed", &orbitState.speed, 0.5f, 30.0f, "%.1f iter/s");
+        ImGui::Checkbox("Loop", &orbitState.looping);
+    }
+
+    ImGui::Separator();
     ImGui::Text("H = toggle overlay  |  ESC = quit");
 
     ImGui::End();
